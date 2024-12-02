@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Deformable Neural Radiance Fields creates free-viewpoint portraits (nerfies) from casually captured videos.">
+  <meta name="keywords" content="Nerfies, D-NeRF, NeRF">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nerfies: Deformable Neural Radiance Fields</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+<style>
+  .gradient-title {
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      margin: -40px auto 10px auto;  /* 上20px 右自动 下50px 左自动 */
+      padding-top: 10px;  /* 添加少量顶部内边距 */
+      
+      /* 创建深色彩虹渐变背景 */
+      background: linear-gradient(
+          45deg,
+          #8B0000,  /* 深红色 */
+          #CD853F,  /* 暗金色 */
+          #556B2F,  /* 暗橄榄绿 */
+          #20B2AA,  /* 深青色 */
+          #4B0082,  /* 靛青色 */
+          #800080,  /* 深紫色 */
+          #8B0000   /* 回到深红色形成循环 */
+      );
+      
+      /* 设置背景大小和动画 */
+      background-size: 300%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: gradient 20s linear infinite;
+      
+      /* 减少模糊的文字阴影 */
+      text-shadow: 
+          0 0 1px rgba(139, 0, 0, 0.1);  /* 减少阴影的模糊半径和透明度 */
+
+
+  }
+
+  /* 为了适应较长的标题，调整字体大小和行高 */
+  .gradient-text-small {
+      font-size: 36px;
+      line-height: 1.4;
+      max-width: 800px;
+  }
+
+  /* 定义动画 */
+  @keyframes gradient {
+      0% {
+          background-position: 0% 50%;
+      }
+      100% {
+          background-position: 300% 50%;
+      }
+  }
+
+</style>
+
+
+<style>
+  .scroll-container {
+    height: 80px;
+    width: 200px;
+    overflow-x: auto;
+    padding: 10px;
+    margin: 5px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    text-align: left;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scroll-container::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scroll-container:hover::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+    background-color: #f5f5f5;
+  }
+  
+  .scroll-container:hover::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 4px;
+  }
+  
+  .scroll-container:hover::-webkit-scrollbar-track {
+    background-color: #f5f5f5;
+    border-radius: 4px;
+  }
+  
+  .content-wrap {
+    width: max-content;
+    text-align: left;
+  }
+  
+  .results-carousel {
+    overflow: hidden;
+    width: 720px;
+    position: relative;
+  }
+  
+  .carousel-item {
+    margin: 0;
+    padding: 0;
+    display: none;
+    width: 240px;
+    float: left;
+  }
+  
+  .carousel-item:nth-child(1),
+  .carousel-item:nth-child(2),
+  .carousel-item:nth-child(3) {
+    display: block;
+  }
+
+  .video-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+</style>
+
+
+
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+
+<!--
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="https://signtech.com">
+      <span class="icon">
+          <i class="fas fa-home"></i>
+      </span>
+      </a>
+
+      <div class="navbar-item has-dropdown is-hoverable">
+        <a class="navbar-link">
+          More Research
+        </a>
+        <div class="navbar-dropdown">
+          
+          <a class="navbar-item" href="https://signdiff.github.io">
+            SignDiff
+          </a>
+          <a class="navbar-item" href="https://signllm.github.io">
+            SignLLM
+          </a>
+          
+        </div>
+      </div>
+    </div>
+
+  </div>
+</nav>
+-->
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="gradient-title">Stable Signer:<br>Hierarchical Sign Language Generative Model</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="">Sen Fang</a><sup>1</sup>,</span>
+            <span class="author-block">
+              <a href="">Zhaoyang Xia</a><sup>1</sup>
+            </span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>Rutgers, The State University of New Jersey</span>
+            <!--<span class="author-block"><sup>2</sup>xxx</span> -->
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <!-- Video Link. -->
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-youtube"></i>
+                  </span>
+                  <span>Video</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                  </a>
+              </span>
+              <!-- Dataset Link. -->
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="far fa-images"></i>
+                  </span>
+                  <span>Data</span>
+                  </a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<div class="columns is-centered has-text-centered">
+  <div class="column is-6">
+    <h2 class="title is-3">Abstract</h2>
+    <div class="content has-text-justified">
+      <p>
+        We present some preliminary results of our newly developed Pose2Video model. 
+        Our proposal aims to combine the most stable and fastest Text2Pose sign language model with state-of-the-art Pose2Video model to help more disadvantaged groups.
+      </p>
+      <p>We are the team with the fastest progress and best results in the field of multilingual generation. While the <a href="https://www.un.org/en/observances/sign-languages-day">United Nations</a> recognizes sign language as one of its official languages, the deaf community still faces significant communication challenges. Currently, mainstream academia can only generate German Sign Language and American Sign Language, overlooking a broader population worldwide. We plan to target more than eight sign languages for our generation system, which would cover over fifty countries.</p>
+    </div>
+  </div>
+</div>
+
+<center><h2 class="title is-3">Demo Overview</h2></center>
+<br>
+
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/asl_vid3.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/gsl_vid3.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/ksl_vid2.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/dsgs_vid3.mp4" frameborder="0"></video>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>ASL</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>DGS</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Im Südostraum ist es vorteilhaft, ein Hochdruckgebiet kommt von Belgien.</i><br>
+              <i>Translation: In the southeastern region it is advantageous, a high-pressure system is coming from Belgium.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>KSL</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: 염려하다.</i><br>
+              <i>Translation: worried about.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>DSGS</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Bei dieser Firma bestelle ich immer die Plastikbecher.</i><br>
+              <i>Translation: I always order plastic cups from this company.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lsf_vid2.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lis_vid3.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lsa_vid4.mp4" frameborder="0"></video>
+      </td>
+      <td align="center" width="240px">
+        <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/tsl_vid2.mp4" frameborder="0"></video>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>LSF-CH</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Le leader du parti socialiste.</i><br>
+              <i>Translation: The leader of the Socialist Party.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>LIS-CH</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Io voglio comprare una nuova borsa.</i><br>
+              <i>Translation: I want to buy a new bag.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>LSA</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: desayuno.</i><br>
+              <i>Translation: breakfast.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+      <td align="center" width="240px">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>TSL</strong>
+        </div>
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Animasyon atölyesinde 9-12 yaş arası işitme engelli çocuklar animasyon sanatını öğrenecekler.</i><br>
+              <i>Translation: Children who are deaf or hard of hearing (aged 9-12) will learn about animation art at the animation workshop.</i>
+            </span>
+          </div>
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td align="center" colspan="4">
+        <span style="font-size:18px; text-align:center;">
+          <i>QP: Synthetic sign language video obtained after processing using style transfer model for reference.</i>
+        </span>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<!--
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="./static/videos/teaser.mp4"
+                type="video/mp4">
+      </video>
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">Nerfies</span> turns selfie videos from your phone into
+        free-viewpoint
+        portraits.
+      </h2>
+    </div>
+  </div>
+</section>
+-->
+
+<center><h2 class="title is-3">Eight Languages</h2></center>
+<br>
+
+<!--以下是ASL表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/asl_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/asl_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>ASL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+                      <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/asl_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>ASL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Alright our next pose for reviving and waking up in the morning is a seated side stretch.</i><br>
+                      <i>Translation: Alright our next pose for reviving and waking up in the morning is a seated side stretch.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/asl_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>ASL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: People are training you to give you the tools mentally to do the job that you're going to do.</i><br>
+                      <i>Translation: People are training you to give you the tools mentally to do the job that you're going to do.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/asl_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>ASL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: So from here, once I get this out, I rotate the hand just like this.</i><br>
+                      <i>Translation: So from here, once I get this out, I rotate the hand just like this.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是GSL表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/gsl_ref.jpg" alt="GSL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/gsl_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>GSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Im Südostraum ist es vorteilhaft, ein Hochdruckgebiet kommt von Belgien.</i><br>
+                      <i>Translation: In the southeastern region it is advantageous, a high-pressure system is coming from Belgium.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/gsl_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>GSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: GUTEN ABEND LIEBE ZUSCHAUER, am Anfang Dezember regnet es heute, die Leute gehen nach Hause, das ist es.</i><br>
+                      <i>Translation: Good evening dear viewers, it started raining in early December and today people are heading home, that's all.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/gsl_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>GSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Im Nordwestraum und später im Südwestraum sowie im Osten wird es etwas trockener.</i><br>
+                      <i>Translation: The northwest, and later the Southwest, and the east will become drier.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/gsl_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>GSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: In der Nacht regnet es besonders im Nordraum und Nordwestraum, im südlichen Teil ist es teilweise klar mit Wolken und Nebel.</i><br>
+                      <i>Translation: Overnight rain, especially in northern and northwestern areas, partly sunny with clouds and fog in southern areas.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+ 
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是KSL表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/ksl_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/ksl_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>KSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: 염려하다.</i><br>
+                      <i>Translation: worried about.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/ksl_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>KSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: 한 시간.</i><br>
+                      <i>Translation: one hour.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/ksl_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>KSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: 휴대폰.</i><br>
+                      <i>Translation: cell phone.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/ksl_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>KSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: 좋아, 좋은.</i><br>
+                      <i>Translation: good, nice.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+  
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是DSGS表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/dsgs_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/dsgs_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>DSGS</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Bei dieser Firma bestelle ich immer die Plastikbecher.</i><br>
+                      <i>Translation: I always order plastic cups from this company.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/dsgs_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>DSGS</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Eine Trauung muss vom Zivilstandsamt vollzogen werden.</i><br>
+                      <i>Translation: The wedding must be performed by a civil registry office.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/dsgs_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>DSGS</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Die Indianer leben in einer anderen Kultur.</i><br>
+                      <i>Translation: The Indians lived in a different culture.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/dsgs_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>DSGS</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Letztes Jahr erhielt ich als Rendite 500 Franken.</i><br>
+                      <i>Translation: I made a profit of 500 francs last year.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是LSF-CH表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/lsf_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lsf_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSF-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Le leader du parti socialiste.</i><br>
+                      <i>Translation: Leader of the Socialist party.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsf_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSF-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: On parle quatre langues en Suisse: français, suisse allemand, italien et romanche.</i><br>
+                      <i>Translation: Four languages are spoken in Switzerland: French, Swiss German, Italian and Romansh.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsf_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSF-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Le chat a des canines très pointues.</i><br>
+                      <i>Translation: Cats have very sharp canine teeth.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsf_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSF-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: La fille aime jouer à habiller la poupée.</i><br>
+                      <i>Translation: The girl likes to play the game of dressing dolls.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是LIS-CH表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/lis_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lis_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LIS-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Io voglio comprare una nuova borsa.</i><br>
+                      <i>Translation: I want to buy a new bag.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lis_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LIS-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Ho chiesto a quel sordo che fa il pittore, se puo' farmi in quadro dai toni arancioni.</i><br>
+                      <i>Translation: I asked the deaf painter if he could paint me a picture in an orange tone.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lis_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LIS-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Partecipo ad un corso d'inglese di livello avanzato.</i><br>
+                      <i>Translation: I took an advanced English course.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lis_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LIS-CH</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Andiamo a camminare in montagna.</i><br>
+                      <i>Translation: Let's go for a walk in the mountains.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+ 
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是LSA表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/lsa_ref_v.png" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/lsa_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSA</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: photo.</i><br>
+                      <i>Translation: photo.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsa_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSA</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Translation: mock.</i><br>
+                      <i>Translation: mock.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsa_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSA</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Translation: birthday.</i><br>
+                      <i>Translation: birthday.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/lsa_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>LSA</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Translation: breakfast.</i><br>
+                      <i>Translation: breakfast.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!--以下是TSL表格-->
+<table align="center" width="960px">
+  <tbody>
+    <tr>
+      <!--参考图-->
+      <td align="center" width="240px">
+        <img src="./src/imgs/tsl_ref.jpg" alt="ASL Sign" width="200" height="282">
+        <div style="margin: 5px 5px 0 5px;">
+          <strong>Reference Image</strong>
+        </div>
+        <!--
+        <div class="scroll-container">
+          <div class="content-wrap">
+            <span style="font-size:14px">
+              <i>Input: Here's a little example here I'm going to give you some insight on though.</i><br>
+              <i>Translation: Here's a little example here I'm going to give you some insight on though.</i>
+            </span>
+          </div>
+        </div>
+        -->
+      </td>
+      <!--参考图如上-->
+      <td align="center" colspan="3">
+        <div class="results-carousel" style="width: 720px; overflow: hidden; position: relative;">
+          <div class="carousel-inner" style="display: flex; transition: transform 0.3s ease;">
+            
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos8/tsl_vid2.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>TSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Animasyon atölyesinde 9-12 yaş arası işitme engelli çocuklar animasyon sanatını öğrenecekler.</i><br>
+                      <i>Translation: In the Animation workshop, hearing impaired children ages 9 to 12 will learn about the art of animation.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/tsl_vid1.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>TSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Ekrandaki engelleri ortadan kaldırdık.</i><br>
+                      <i>Translation: We eliminated the barriers on the screen.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/tsl_vid3.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>TSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: İşitme engelli çocuklarımız, başarılarını dünyaya kanıtladılar.</i><br>
+                      <i>Translation: Our children with hearing impairments proved their success to the world.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="carousel-item" style="min-width: 240px;">
+              <div class="video-container">
+                <video width="200" height="282" controls autoplay loop muted playsinline src="./src/videos/tsl_vid4.mp4"></video>
+                <div style="margin: 5px 5px 0 5px;">
+                  <strong>TSL</strong>
+                </div>
+                <div class="scroll-container">
+                  <div class="content-wrap">
+                    <span style="font-size:14px">
+                      <i>Input: Yedinci sırada yer aldık, ama daha da önemlisi bu, tüm insanlığa engelin bedende olmadığını ilan etti.</i><br>
+                      <i>Translation: We ranked seventh, but more importantly, it proclaimed to all humanity that disability is not in the body.</i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+    
+        </div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{Sign Language Generation Model,
+  author    = {xxx},
+  title     = {Sign Language Generation Model},
+  journal   = {arXiv},
+  year      = {2025},
+}</code></pre>
+  </div>
+</section>
+
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link"
+         href="">
+        <i class="fas fa-file-pdf"></i>
+      </a>
+      <a class="icon-link" href="" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This website is licensed under a <a rel="license"
+                                                href="https://www.creativecommons.org/licenses/by-nc/4.0/deed.en">Creative Commons Attribution-NonCommercial</a>.
+          </p>
+          <p>
+            This means you are free to borrow the <a
+              href="https://github.com/nerfies/nerfies.github.io">source code</a> of this website,
+            we just ask that you link back to this page in the footer.
+            Please remember to remove the analytics code included in the header of the website which
+            you do not want on your website.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  let currentPosition = 0;
+  const carousel = document.querySelector('.carousel-inner');
+  const items = document.querySelectorAll('.carousel-item');
+  const totalItems = items.length;
+  
+  function moveCarousel(direction) {
+    currentPosition = (currentPosition + direction + totalItems) % totalItems;
+    
+    // 确保始终显示3个项目
+    if (currentPosition > totalItems - 3) {
+      currentPosition = totalItems - 3;
+    }
+    
+    // 应用变换
+    carousel.style.transform = `translateX(-${currentPosition * 240}px)`;
+    
+    // 如果到达末尾，禁用向右按钮
+    const rightButton = document.querySelector('.carousel-control:last-child');
+    rightButton.disabled = currentPosition >= totalItems - 3;
+    
+    // 如果在开始，禁用向左按钮
+    const leftButton = document.querySelector('.carousel-control:first-child');
+    leftButton.disabled = currentPosition <= 0;
+  }
+  
+  // 初始化显示
+  moveCarousel(0);
+  </script>
+
+</body>
+</html>
