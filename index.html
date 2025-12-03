@@ -239,7 +239,7 @@
 </nav>
 -->
 
-<section class="hero">
+<section class="hero" style="margin-bottom: 1rem;">
   <div class="hero-body">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
@@ -318,21 +318,29 @@
   </div>
 </section>
 
-<hr>
+<hr style="margin: 1.5rem 0;">
 
 <div class="columns is-centered has-text-centered">
   <div class="column is-6">
     <h2 class="title is-3">Abstract</h2>
     <div class="content has-text-justified">
       <p>
-        We present some preliminary results of our newly developed Pose2Video model. 
-        Our proposal aims to combine the most stable and fastest Text2Pose sign language model with state-of-the-art Pose2Video model to help more disadvantaged groups.
+        Sign Language Production (SLP) is the process of converting the complex input text into a real video. Most previous works focused on the Text2Gloss, Gloss2Pose, Pose2Vid stages, and some concentrated on Prompt2Gloss and Text2Avatar stages. However, this field has made slow progress due to the inaccuracy of text conversion, pose generation, and the rendering of poses into real human videos in these stages, resulting in gradually accumulating errors. Therefore, in this paper, we streamline the traditional redundant structure, simplify and optimize the task objective, and design a new sign language generative model called <strong>Stable Signer</strong>. It redefines the SLP task as a hierarchical generation end-to-end task that only includes text understanding (Prompt2Gloss, Text2Gloss) and Pose2Vid, and executes text understanding through our proposed new <strong>S</strong>ign <strong>L</strong>anguage <strong>U</strong>nderstanding <strong>L</strong>inker called <strong>SLUL</strong>, and generates hand gestures through the named <strong>SLP-MoE</strong> hand gesture rendering expert block to end-to-end generate high-quality and multi-style sign language videos. SLUL is trained using the newly developed <strong>S</strong>emantic-<strong>A</strong>ware <strong>G</strong>loss <strong>M</strong>asking Loss (<strong>SAGM Loss</strong>). Its performance has improved by 48.6% compared to the current SOTA generation methods, which is a significant increase in the SLP field.
       </p>
-      <p>We are the team with the fastest progress and best results in the field of multilingual generation. While the <a href="https://www.un.org/en/observances/sign-languages-day">United Nations</a> recognizes sign language as one of its official languages, the deaf community still faces significant communication challenges. Currently, mainstream academia can only generate German Sign Language and American Sign Language, overlooking a broader population worldwide. We plan to target more than eight sign languages for our generation system, which would cover over fifty countries.</p>
-        <p>
-        If you have any regular or academic cooperation on SLP, please contact me directly (Sen Fang). If you have funding support or want to sponsor our laboratory, you can send an email to my advisor and copy me as well.
-        </p>
     </div>
+    <details>
+      <summary style="text-align: left; font-weight: bold;">More Information</summary>
+      <div class="content has-text-justified">
+        <p>
+          We present some latest results of our newly developed SLP model.
+          Our new work aims to combine the most stable and fastest Text2Pose sign language model with state-of-the-art Pose2Video model to help more disadvantaged groups.
+        </p>
+        <p>We are the team with the fastest progress and best results in the field of multilingual generation. While the <a href="https://www.un.org/en/observances/sign-languages-day">United Nations</a> recognizes sign language as one of its official languages, the deaf community still faces significant communication challenges. Currently, mainstream academia can only generate German Sign Language and American Sign Language, overlooking a broader population worldwide. We plan to target more than eight sign languages for our generation system, which would cover over fifty countries.</p>
+        <p>
+          If you have any regular or academic cooperation on SLP, please contact me directly (Sen Fang). If you have funding support or want to sponsor our laboratory, you can send an email to my advisor and copy me as well.
+        </p>
+      </div>
+    </details>
   </div>
 </div>
 
